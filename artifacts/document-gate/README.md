@@ -1,3 +1,5 @@
+<img width="1024" height="559" alt="9CEF9870-E9A2-41A2-9A68-665DAA1AF18B" src="https://github.com/user-attachments/assets/4a3cc5ab-c56e-4074-acbb-5b17c9a89775" />
+
 # Document Gate 
 
 ## What This Is
