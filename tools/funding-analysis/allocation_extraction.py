@@ -1,252 +1,123 @@
-import hashlib
 import re
+import json
+import hashlib
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 from datetime import date
 
-# --------------------------------------------------
-# 1. Global State Registries
-# --------------------------------------------------
+# --- 1. Hardened Telemetry ---
+class Telemetry:
+    def __init__(self):
+        self.rejections = []
+        self.extraction_stats = {}
+        self.filing_stats = {}
 
-REJECTED_YEARS_LOG: List[Dict] = []
-EXTRACTION_STATS: Dict[str, Dict] = {}
-FILING_STATS: Dict[str, Dict] = {}
-FILING_QUALITY_ALERTS: Dict[str, Dict] = {}
+    def log_rejection(self, entry: dict):
+        self.rejections.append(entry)
 
-# --------------------------------------------------
-# 2. System Constants
-# --------------------------------------------------
+    def update_stats(self, filing_id: str, filing_type: str, count: int):
+        self.extraction_stats.setdefault(filing_type, {"total_matches": 0})["total_matches"] += count
+        self.filing_stats.setdefault(filing_id, {"total_matches": 0})["total_matches"] += count
 
-MIN_VALID_YEAR = 1900
-MAX_VALID_YEAR = 2100
+    def get_summary(self):
+        rejection_counts = {}
+        for entry in self.rejections:
+            f_type = entry.get('filing_type', 'UNKNOWN')
+            rejection_counts[f_type] = rejection_counts.get(f_type, 0) + 1
+        
+        rankings = []
+        for f_type, stats in self.extraction_stats.items():
+            total = stats.get('total_matches', 0)
+            rej = rejection_counts.get(f_type, 0)
+            # Reliability is 0 if no data found
+            score = round(1.0 - (rej / total), 4) if total > 0 else 0.0
+            rankings.append({'filing_type': f_type, 'reliability_score': score})
+        
+        return {
+            "total_rejections": len(self.rejections),
+            "reliability_rankings": sorted(rankings, key=lambda x: x['reliability_score'], reverse=True)
+        }
 
-CURRENCY_SANITY_BOUNDS = {
-    "min": 0.0,
-    "max": 10_000_000_000.0,  # 10B baseline
-}
+# --- 2. Final Consolidated Auditor ---
+class FilingAuditor:
+    def __init__(self, target_years: List[int]):
+        self.target_years = target_years
+        self.coverage = {y: 0 for y in target_years}
+        self.telemetry = Telemetry()
+        
+    def _resolve_year_token(self, token: str, reference_date: date) -> int:
+        clean_token = re.sub(r"\D", "", token)
+        if not clean_token: raise ValueError("Empty token")
+        if len(clean_token) == 4: return int(clean_token)
+        if len(clean_token) == 2:
+            pivot_year = reference_date.year
+            century = (pivot_year // 100) * 100
+            year_val = century + int(clean_token)
+            if year_val > pivot_year + 20: year_val -= 100
+            return year_val
+        raise ValueError(f"Ambiguous: {token}")
 
-CONTEXT_SANITY_BOUNDS = {
-    "ANNUAL_REPORT": {"min": 1800, "max": 2100},
-    "PRESS_RELEASE": {"min": 1900, "max": 2100},
-    "DEFAULT": {"min": 1900, "max": 2100},
-}
+    def _extract_currency(self, text: str) -> List[Dict]:
+        multipliers = {'m': 1e6, 'million': 1e6, 'b': 1e9, 'billion': 1e9}
+        # Hardened pattern with forced boundary for shorthand units
+        pattern = r"(?i)(?<![\w.])(?P<sign>-?)\$((?P<value>\d{1,3}(?:,\d{3})*(?:\.\d{2})?)(?:\s+(?P<unit>million|billion|m|b))?)(?![\d])"
+        results = []
+        for match in re.finditer(pattern, text):
+            g = match.groupdict()
+            try:
+                val = float(g['value'].replace(",", ""))
+                if g['sign'] == '-': val = -val
+                if g['unit']: val *= multipliers.get(g['unit'].lower(), 1)
+                
+                # Memory-safe line extraction
+                start = text.rfind('\n', 0, match.start()) + 1
+                end = text.find('\n', match.end())
+                if end == -1: end = len(text)
+                snippet = text[start:end].strip()
+                if len(snippet) > 500: snippet = f"{snippet[:250]} [...] {snippet[-250:]}"
+                
+                results.append({'amount': val, 'snippet': snippet})
+            except (ValueError, TypeError): continue
+        return results
 
-REJECTION_THRESHOLDS = {
-    "ANNUAL_REPORT": 0.3,
-    "PRESS_RELEASE": 0.5,
-    "DEFAULT": 0.3,
-}
+    def audit_filing(self, filing: Filing):
+        text = filing.processed_text
+        if not text: return
+        is_outlook = any(kw in text.lower() for kw in ['outlook', 'forecast', 'projection', 'planned'])
+        max_yr_limit = 2200 if is_outlook else 2100
+        
+        # 1. Scale Learning
+        currency_info = self._extract_currency(text)
+        abs_amounts = [abs(i['amount']) for i in currency_info if abs(i['amount']) > 0]
+        dynamic_cap = (sorted(abs_amounts[:5])[len(abs_amounts[:5])//2] * 10.0) if abs_amounts else 1e12
 
-# --------------------------------------------------
-# 3. Utility Functions
-# --------------------------------------------------
+        # 2. Year Extraction
+        pattern = r"(?i)\b(?:year|period|fy)\s*(?P<val>\d{2,4}(?:[-/]\d{2,4})?)\b"
+        for match in re.finditer(pattern, text):
+            token = match.group('val')
+            root_part = re.split(r'[-/]', token)[0]
+            try:
+                yr = self._resolve_year_token(root_part, filing.accepted_date)
+                if 1900 <= yr <= max_yr_limit:
+                    if yr in self.coverage: self.coverage[yr] = 1
+                    self.telemetry.update_stats(filing.identifier, filing.filing_type, 1)
+                else:
+                    self.telemetry.log_rejection({"year": yr, "filing_id": filing.identifier, "filing_type": filing.filing_type, "context": "out_of_bounds"})
+            except (ValueError, int): continue
 
-def sha256_bytes(b: bytes) -> str:
-    return hashlib.sha256(b).hexdigest()
+        # 3. Currency Audit
+        for info in currency_info:
+            self.telemetry.update_stats(filing.identifier, filing.filing_type, 1)
+            if abs(info['amount']) > dynamic_cap:
+                self.telemetry.log_rejection({
+                    "value": info['amount'], "filing_id": filing.identifier, 
+                    "filing_type": filing.filing_type, "context": "financial_outlier", "snippet": info['snippet']
+                })
 
-def canonicalize_text(text: str) -> str:
-    return " ".join(text.split())
-
-def hash_canonical_text(text: str) -> str:
-    return sha256_bytes(canonicalize_text(text).encode("utf-8"))
-
-def get_context_snippet(text: str, start: int, end: int, window: int = 25) -> str:
-    s = max(0, start - window)
-    e = min(len(text), end + window)
-    return text[s:e]
-
-def preprocess_temporal_metadata(text: str) -> str:
-    if not text:
-        return ""
-    token_pattern = r"\b\d{4}(?:[-/]\d{2,4})?\b"
-
-    def replacer(match):
-        token = match.group(0)
-        if "-" in token or "/" in token:
-            return f"period {token}"
-        return f"year {token}"
-
-    return re.sub(token_pattern, replacer, text)
-
-# --------------------------------------------------
-# 4. Data Model
-# --------------------------------------------------
-
-@dataclass
-class Filing:
-    filing_type: str
-    source_class: str
-    identifier: str
-    accepted_date: date
-    raw_bytes: bytes
-    text: Optional[str]
-
-    raw_hash: str = field(init=False)
-    canonical_hash: str = field(init=False)
-
-    def __post_init__(self):
-        if self.raw_bytes is None:
-            raise ValueError("raw_bytes must not be None")
-
-        self.raw_hash = sha256_bytes(self.raw_bytes)
-
-        if self.text:
-            self.text = preprocess_temporal_metadata(self.text)
-
-        self.canonical_hash = hash_canonical_text(self.text or "")
-
-# --------------------------------------------------
-# 5. Extraction Logic
-# --------------------------------------------------
-
-def extract_currency_amounts(text: str) -> List[Dict]:
-    pattern = (
-        r"(?i)"
-        r"(?<![\w.])"
-        r"(?P<sign>-?)\$"
-        r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?)"
-        r"(?:\s*(?P<unit>million|billion|m|b))?"
-    )
-
-    multipliers = {
-        "m": 1e6,
-        "million": 1e6,
-        "b": 1e9,
-        "billion": 1e9,
-    }
-
-    results = []
-    for m in re.finditer(pattern, text):
-        try:
-            amt = float(m.group("value").replace(",", ""))
-            if m.group("sign") == "-":
-                amt = -amt
-            if m.group("unit"):
-                amt *= multipliers[m.group("unit").lower()]
-            results.append(
-                {"amount": amt, "start": m.start(), "end": m.end()}
-            )
-        except ValueError:
-            continue
-
-    return results
-
-def expand_year_range(range_str: str, min_year: int, max_year: int) -> List[int]:
-    match = re.match(r"(\d{4})[-/](\d{2,4})", range_str)
-    if not match:
-        return []
-
-    start_year = int(match.group(1))
-    end_raw = match.group(2)
-
-    if len(end_raw) == 2:
-        end_year = (start_year // 100) * 100 + int(end_raw)
-        if end_year < start_year:
-            end_year += 100
-    else:
-        end_year = int(end_raw)
-
-    return [y for y in range(start_year, end_year + 1)
-            if min_year <= y <= max_year]
-
-def r3_classify(
-    filing: Filing,
-    required_years: List[int],
-) -> Tuple[str, Dict[int, bool]]:
-
-    if not filing.text:
-        return "R3_NON_PARSABLE", {y: False for y in required_years}
-
-    f_id = filing.identifier
-    f_type = filing.filing_type
-
-    FILING_STATS.setdefault(f_id, {"total": 0})
-    EXTRACTION_STATS.setdefault(f_type, {"total": 0})
-
-    found_years = set()
-
-    year_pattern = (
-        r"\b"
-        r"(?:year|period)\s+"
-        r"(?P<yr>\d{4}|\d{4}[-/]\d{2,4})"
-        r"\b"
-    )
-
-    bounds = CONTEXT_SANITY_BOUNDS.get(f_type, CONTEXT_SANITY_BOUNDS["DEFAULT"])
-    min_y, max_y = bounds["min"], bounds["max"]
-
-    for m in re.finditer(year_pattern, filing.text):
-        token = m.group("yr")
-        FILING_STATS[f_id]["total"] += 1
-        EXTRACTION_STATS[f_type]["total"] += 1
-
-        if "-" in token or "/" in token:
-            years = expand_year_range(token, min_y, max_y)
-            found_years.update(years)
-        else:
-            y = int(token)
-            if min_y <= y <= max_y:
-                found_years.add(y)
-            else:
-                REJECTED_YEARS_LOG.append(
-                    {"value": y, "filing": f_id, "context": "year"}
-                )
-
-    for info in extract_currency_amounts(filing.text):
-        FILING_STATS[f_id]["total"] += 1
-        EXTRACTION_STATS[f_type]["total"] += 1
-        amt = info["amount"]
-        if not (CURRENCY_SANITY_BOUNDS["min"] <= amt <= CURRENCY_SANITY_BOUNDS["max"]):
-            REJECTED_YEARS_LOG.append(
-                {"value": amt, "filing": f_id, "context": "currency"}
-            )
-
-    year_map = {y: y in found_years for y in required_years}
-
-    if all(year_map.values()):
-        status = "R3_PARSABLE_COMPLETE"
-    elif any(year_map.values()):
-        status = "R3_PARSABLE_PARTIAL"
-    else:
-        status = "R3_NON_PARSABLE"
-
-    return status, year_map
-
-# --------------------------------------------------
-# 6. Null Identifier Engine
-# --------------------------------------------------
-
-def null_identifier_engine(
-    issuer_name: str,
-    target_years: List[int],
-    primary: Filing,
-    supplements: List[Filing],
-) -> Dict:
-
-    coverage = {y: 0 for y in target_years}
-
-    _, primary_map = r3_classify(primary, target_years)
-    for y, ok in primary_map.items():
-        if ok:
-            coverage[y] = 1
-
-    for f in supplements:
-        _, year_map = r3_classify(f, target_years)
-        for y, ok in year_map.items():
-            if ok:
-                coverage[y] = 1
-
-    null_years = [y for y, v in coverage.items() if v == 0]
-
-    return {
-        "issuer": issuer_name,
-        "coverage_vector": coverage,
-        "null_years": null_years,
-    }
-
-# --------------------------------------------------
-# Load Confirmation
-# --------------------------------------------------
-
-if __name__ == "__main__":
-    print("Filing Analysis System (MVP v1.0) loaded successfully.")
+    def get_report(self, issuer_name: str) -> Dict:
+        return {
+            "issuer": issuer_name,
+            "coverage_vector": self.coverage,
+            "gaps": [y for y, v in self.coverage.items() if v == 0],
+            "telemetry_audit": self.telemetry.get_summary()
+        }
