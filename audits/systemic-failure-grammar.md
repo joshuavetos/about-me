@@ -230,3 +230,152 @@ Further optimization attempts will only redistribute harm, not eliminate it.
 **Result:** Grammar complete.  
 **Next work:** Application and defense only.
 ABSTAIN is the system refusing to assign responsibility — and responsibility must always be assigned explicitly by either a human or a constrained regeneration loop.
+## ABSTAIN ROUTING + REGENERATION KERNEL (AUTHORITATIVE)
+
+### Purpose
+Define exactly what happens when the system ABSTAINS, how recovery occurs, and where human authority is allowed to intervene without destroying integrity.
+
+---
+
+## 1. ABSTAIN TRIGGER (NON-NEGOTIABLE)
+
+ABSTAIN occurs when **any** of the following fail:
+
+- Schema / bounds validation
+- Deterministic analysis invariants
+- Statistical stability checks
+- Epistemic integrity checks (missing, contradictory, or unsafe inference)
+
+ABSTAIN is a **successful terminal state**.
+No partial results propagate.
+
+---
+
+## 2. ABSTAIN OUTPUT (STRUCTURED, NOT NARRATIVE)
+
+On ABSTAIN, the system MUST emit:
+
+- `status = ABSTAIN`
+- `rejection_log[]` (machine-readable)
+  - index
+  - field / location
+  - failure class
+  - constraint violated
+- `input_fingerprint`
+- `audit_hash`
+
+No summaries. No interpretations. No recommendations.
+
+---
+
+## 3. CONSTRAINED REGENERATION LOOP (AI PATH)
+
+ABSTAIN → AI is allowed to retry **only** under these rules:
+
+1. **Input Space Reduction**
+   - AI may modify *only* fields referenced in `rejection_log`
+   - All other fields are frozen
+
+2. **Constraint Injection**
+   - Each rejection becomes a hard constraint:
+     - value range
+     - type
+     - length
+     - ordering
+   - Constraints are cumulative across retries
+
+3. **Same-Gate Reentry**
+   - Regeneration re-enters **only the gate that failed**
+   - Earlier gates are not skipped
+   - Later gates are unreachable until pass
+
+4. **Retry Budget**
+   - Fixed max retries (e.g. 3–5)
+   - Exhaustion → permanent ABSTAIN
+
+AI is **not** allowed to:
+- Reframe the task
+- Add new data
+- Invent justification
+- Escalate itself
+
+---
+
+## 4. HUMAN OVERRIDE PATH (EXPLICIT AUTHORITY)
+
+Humans may override ABSTAIN **only** by asserting authority.
+
+Override requires:
+
+- Explicit `FORCE_PASS` flag
+- Named operator (human identity)
+- Timestamp
+- Reason code (free text, not parsed)
+- New audit hash
+
+Effects:
+
+- Artifact is emitted
+- Artifact is permanently flagged
+- Downstream systems may refuse flagged outputs
+
+No silent overrides.
+No retroactive cleanup.
+
+---
+
+## 5. RUBBER-STAMP PREVENTION (MANDATORY)
+
+To prevent humans from auto-clicking through ABSTAIN:
+
+- Track:
+  - ABSTAIN frequency per operator
+  - Override rate per operator
+  - Time-to-override distribution
+- Thresholds:
+  - Excess overrides → privilege review
+  - Fast overrides → manual audit
+- Overrides are irreversible and visible
+
+ABSTAIN is designed to be **annoying on purpose**.
+
+---
+
+## 6. FAILURE CLASSIFICATION (WHO FIXES WHAT)
+
+Each rejection MUST be labeled:
+
+- `AI_FIXABLE`
+  - formatting
+  - bounds
+  - missing fields
+  - deterministic corrections
+
+- `HUMAN_REQUIRED`
+  - ambiguous intent
+  - conflicting source truth
+  - legal / semantic judgment
+
+AI may only act on `AI_FIXABLE`.
+
+---
+
+## 7. INVARIANTS (CANNOT BE BROKEN)
+
+- ABSTAIN propagates upward, never downward
+- No gate may be skipped
+- No regeneration without constraints
+- No override without attribution
+- Silence is valid output
+- Auditability > throughput
+
+---
+
+## STATUS
+
+This kernel is:
+- Not theoretical
+- Not advisory
+- Not optional
+
+It is the control surface that keeps the system honest.
