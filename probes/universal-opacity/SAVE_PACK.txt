@@ -1,0 +1,57 @@
+generated_at: 2026-02-07T19:25:52Z
+
+========================================
+FILE: ENERGY_ELCC__SAVE.txt
+========================================
+BASELINE_NAMEPLATE_MW: 217100
+BASELINE_ACCREDITED_MW: 82061.0
+GHOST_PCT: 62.2
+SIGNAL_LOSS_RATIO: 0.622
+CLASSIFICATION: IRREDUCIBLE_PROXY_SYSTEM
+
+DOMINANT_ASSUMPTIONS (±1% ELCC):
+- Solar: 924.0 MW
+- Thermal: 680.0 MW
+- Wind: 452.0 MW
+- Battery: 68.0 MW
+- Nuclear: 47.0 MW
+
+----------------------------------------
+
+FILE: CAISO_ELCC__SAVE.txt
+STATUS: CONTRACT/ACCESS
+
+----------------------------------------
+
+FILE: PJM_ELCC__SAVE.txt
+STATUS: CONTRACT/ACCESS
+
+----------------------------------------
+
+FILE: ISO_NE_FCA__SAVE.txt
+STATUS: CONTRACT/ACCESS
+
+----------------------------------------
+
+FILE: MISO_LOLE__SAVE.txt
+STATUS: CONTRACT/ACCESS
+
+----------------------------------------
+
+FILE: ESG_RATINGS__SAVE.txt
+STATUS: PROXY_SIGNAL_DESTRUCTION
+
+----------------------------------------
+
+FILE: CREDIT_RATINGS__SAVE.txt
+STATUS: PROXY_SIGNAL_DESTRUCTION
+
+----------------------------------------
+
+FILE: UNIVERSITY_RANKINGS__SAVE.txt
+STATUS: PROXY_SIGNAL_DESTRUCTION
+
+----------------------------------------
+
+FILE: INSURANCE_RISK_MODELS__SAVE.txt
+STATUS: PROXY_SIGNAL_DESTRUCTION
