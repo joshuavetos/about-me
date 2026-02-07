@@ -263,3 +263,113 @@ This artifact is operational.
 It has a single purpose: **decide whether language is allowed to exist**.
 
 If the answer cannot be defended, it does not ship.
+## GATE CONTEXT, DEPENDENCIES, AND REVALIDATION RULES (LOCKED)
+
+This section defines how gates interact across regeneration, time, and overrides.
+No gate may weaken or reinterpret these rules.
+
+---
+
+## 9. BASELINE REFERENCE MODEL (AUTHORITATIVE)
+
+ABSTAIN baselines are defined as:
+
+- **Primary:** Per-artifact-type median ABSTAIN rate
+- **Secondary (diagnostic only):**
+  - Global median
+  - Per-operator median
+
+Enforcement decisions MUST reference the per-artifact-type baseline.
+Global and per-operator baselines exist only to surface anomalies.
+
+---
+
+## 10. GATE DEPENDENCY RULE (NO STALE ASSUMPTIONS)
+
+If Gate k consumes outputs from Gate j (j < k):
+
+- Any regeneration affecting Gate j outputs INVALIDATES Gate k
+- Gate k MUST be fully re-executed, not merely revalidated
+
+Example:
+- Budget Gate changes $5M → $3M
+- Legal Gate must re-run compliance checks for $3M
+- Cached approvals are forbidden
+
+---
+
+## 11. CONTEXT FREEZING (DETERMINISM)
+
+Each artifact evaluation operates under a **frozen context snapshot**:
+
+- Policy versions
+- Schemas
+- Reference documents
+- External data sources
+
+Rules:
+- Context snapshot is captured at first gate entry
+- All revalidations use the same snapshot
+- Context changes require a NEW artifact evaluation
+
+This prevents time-based nondeterminism.
+
+---
+
+## 12. REVALIDATION VS RETRY (CRITICAL)
+
+Revalidation after regeneration is NOT free.
+
+Rules:
+- If revalidation fails, it consumes retry budget
+- If retry budget is exhausted, failure is terminal
+- There is no “automatic fail without charging”
+
+Rationale:
+Revalidation is a test of stability, not a courtesy check.
+
+---
+
+## 13. CIRCULAR DEPENDENCY TERMINATION
+
+Circular regeneration loops are explicitly bounded.
+
+Rules:
+- Per-gate retry budgets apply
+- Additionally, each artifact has a **global regeneration cap**
+  (default: 2 × total gate count)
+
+If the global cap is reached:
+- Artifact enters permanent ABSTAIN
+- No further regeneration is permitted
+
+This guarantees termination.
+
+---
+
+## 14. OVERRIDE PROPAGATION SEMANTICS
+
+Overrides are **sticky and propagating**.
+
+Rules:
+- Any FORCE_PASS at Gate k marks the artifact as FORCE_PASS
+- The flag persists through all downstream gates
+- Downstream gates may still fail or override independently
+
+Final artifact status may be:
+- CLEAN (no overrides)
+- OVERRIDDEN (one or more gates)
+
+No override is ever hidden or erased.
+
+---
+
+## 15. FINAL INVARIANTS (NON-NEGOTIABLE)
+
+- No gate may rely on stale upstream outputs
+- No gate may use live context during revalidation
+- Retry exhaustion is terminal
+- Overrides increase scrutiny; they never reduce it
+- Termination is guaranteed
+
+This section is authoritative and supersedes local implementations.
