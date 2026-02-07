@@ -1,4 +1,5 @@
-![814DB5A2-9229-4267-BAF1-8ED9B6C1621F](https://github.com/user-attachments/assets/2c5586d8-185e-4e89-8366-6f8258393a29)
+![03EFDB5E-F849-464C-8923-70B233890BE6](https://github.com/user-attachments/assets/da28105e-862a-4baf-baf9-557bb0341782)
+
 
 # Comparative Analysis: Standard Z-Score vs. Modified Z-Score
 
