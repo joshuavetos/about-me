@@ -1,9 +1,6 @@
 ![1E59E05F-58E9-461E-BB67-F8A6A7FCAAFE](https://github.com/user-attachments/assets/84855d90-cef7-4a55-ab2f-14a70fe4908e)
 
-# INCIDENT REPORT — LEGITIMACY FAILURE IN MEAN-BASED AUDITING
-
-## Incident Class
-False Legitimacy via Statistical Masking
+## False Legitimacy via Statistical Masking
 
 ## Status
 Closed (Root cause identified, corrective architecture deployed)
