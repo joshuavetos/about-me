@@ -1,5 +1,18 @@
 <img width="1024" height="559" alt="05883C4A-AC79-4470-8DFE-CC365E3B3D63" src="https://github.com/user-attachments/assets/8e136804-b789-4fc3-afd4-d33f400f825a" />
 
+## Context and Purpose of This Record
+
+This section documents formal correspondence submitted into the public record regarding the **Shape Sioux Falls 2050 Comprehensive Development Plan** and its relationship to the City’s **2026–2030 Capital Improvement Program (CIP)**.
+
+The purpose of this record is not to debate the vision or intent of long-range planning, but to establish—using the City’s own published materials—whether adopted growth frameworks are supported by identified, scheduled, and funded capital within the applicable fiscal horizon.
+
+Specifically, this correspondence highlights areas where:
+- Growth tiers are defined beyond the funded CIP window,
+- Infrastructure availability is described as contingent rather than programmed,
+- Housing and service assumptions lack quantified mitigation mechanisms, and
+- Tier-based planning is not explicitly mapped to CIP line-item allocations.
+
+The emails below are included verbatim to preserve procedural accuracy and demonstrate how these questions were raised, acknowledged, and incorporated into the official record prior to plan adoption.
 Dear Mr. Lacock,
 
 Please accept this correspondence as a formal public comment regarding the Shape Sioux Falls 2050 Comprehensive Development Plan (Draft dated December 22, 2025), submitted in advance of its final adoption.
