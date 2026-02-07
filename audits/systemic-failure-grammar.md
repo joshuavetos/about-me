@@ -151,3 +151,81 @@ Audit Space: Finite
 Topology: Mapped  
 Grammar: Defined  
 Conclusion: **The investigation is closed.**
+## Boundary Conditions: Why False-Negative Prevention Fails at Scale
+
+This section defines the terminal boundary of the Systemic Failure Grammar.  
+It explains why many audits correctly end without remediation and why further design effort does not change outcomes.
+
+### Core Invariant (Restated)
+
+Modern systems optimize for **safe rejection** rather than **responsible acceptance**.
+
+- False positives impose concentrated, auditable institutional costs (liability, budget, reputational risk).
+- False negatives impose distributed, untracked user costs (delay, exclusion, harm, exhaustion).
+- Systems therefore minimize the errors they pay for and externalize the errors they do not.
+
+This behavior is not ideological. It is structural.
+
+### Boundary Rule
+
+False-negative prevention is only stable when enforcement is **non-discretionary and automatic**.
+
+**Valid enforcers**
+- Physics (gravity-driven shutdowns, mechanical interlocks)
+- Mathematics (cryptography, quorum consensus, formal proofs)
+- Binding execution (self-executing contracts, atomic swaps)
+
+**Invalid enforcers**
+- Policy
+- Regulation
+- Oversight
+- Audit
+- Tort liability
+- “Good intent”
+
+**Reason**  
+All invalid enforcers require detection, judgment, and initiation.  
+That gap is where false negatives persist.
+
+Liability prices errors after the fact.  
+It does not prevent them.
+
+### The Stability Tax
+
+Large-scale social systems remain governable by anchoring legitimacy to **process**, not outcome correctness.
+
+False negatives are not treated as defects to be eliminated.  
+They function as entropy that keeps the system finite.
+
+Stability is achieved through:
+- Exhaustion (appeals, retries, procedural drag)
+- Randomness (lotteries, juries, sampling)
+- Finality (deadlines, statutes of repose, no-appeal rules)
+
+Perfect individual correctness would require infinite review and collapses the system.
+
+### The Scale Constraint
+
+Any system that relies on human judgment to correct false negatives is **transient**.
+
+It will either:
+- Collapse under volume, or
+- Convert to rule-based delegation that externalizes the false negative.
+
+“Founder mode” accuracy is not a design.  
+It is a temporary subsidy of attention that does not survive scale.
+
+### Closure Condition
+
+If a system:
+- relies on discretionary judgment,
+- lacks automatic enforcement,
+- or requires user initiation to correct harm,
+
+then false-negative prevention is structurally impossible.
+
+Further optimization attempts will only redistribute harm, not eliminate it.
+
+**Status:** Boundary reached.  
+**Result:** Grammar complete.  
+**Next work:** Application and defense only.
