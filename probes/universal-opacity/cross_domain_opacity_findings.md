@@ -1,3 +1,5 @@
+<img width="1536" height="1024" alt="8ECC7F72-DDB1-4DEA-9A4D-F80FB014F1BE" src="https://github.com/user-attachments/assets/b276739d-4c0f-469b-8fe2-dec25a78f390" />
+
 # Universal Opacity Probe
 
 This file records the results of a cross-domain investigation into whether public-interest systems are independently verifiable from public information.
