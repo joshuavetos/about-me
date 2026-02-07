@@ -1,7 +1,7 @@
 <img width="1024" height="572" alt="BD3229E2-3823-4D12-9C08-0FE461870C88" src="https://github.com/user-attachments/assets/a66942db-b594-4c13-8431-30b3b2478ec3" />
 
 # Supplement Illusion: A Quantitative Audit of Fitness Influencer Claims  
-**Joshua Scott Vetos | February 2026**  
+**Josh Vetos | February 2026**  
 **Technical White Paper / Preprint**
 
 ---
