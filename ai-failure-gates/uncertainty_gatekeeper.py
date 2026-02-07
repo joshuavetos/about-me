@@ -1,160 +1,54 @@
-import re
-import json
-import logging
 import hashlib
-import time
-from enum import Enum
-from functools import wraps
-from typing import List, Dict, Tuple, Optional, Any, Protocol, runtime_checkable, Set
-from dataclasses import dataclass, field
-from datetime import date
-from pydantic import BaseModel, Field, field_validator
+import re
+from typing import Dict, Tuple, Optional, Protocol, Any
+from pydantic import BaseModel, Field
 
-# --------------------------------------------------
-# 1. LOGGING & METRICS
-# --------------------------------------------------
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-logger = logging.getLogger("FilingAuditor")
-
-@dataclass
-class AuditMetrics:
-    total_requests: int = 0
-    refusals: int = 0
-    cache_hits: int = 0
-    failures_by_type: Dict[str, int] = field(default_factory=dict)
-
-# --------------------------------------------------
-# 2. SCHEMAS & UTILITIES
-# --------------------------------------------------
-
-class InferenceFailure(Enum):
-    INSUFFICIENT_GROUNDING = "insufficient_grounding"
-    CONTRADICTORY_SOURCES = "contradictory_sources"
-    AMBIGUOUS_SCOPE = "ambiguous_scope"
-    OUT_OF_BOUNDS = "out_of_bounds"
-
-@dataclass(frozen=True)
-class AuditContract:
-    min_confidence: float = 0.9
-    required_citations: bool = True
-    uncertainty_patterns: Tuple[str, ...] = (
-        r"\bi think\b", r"\bprobably\b", r"\bperhaps\b",
-        r"\bnot sure\b", r"\bmight be\b", r"\bmaybe\b"
-    )
+# FAIL-CLOSED: Pydantic v2 is the ONLY supported version for deterministic serialization
+from pydantic import model_validator as validator_v2
 
 class LLMResponse(BaseModel):
     text: str
-    confidence: float = Field(default=0.0)
+    confidence: float = Field(..., ge=0.0, le=1.0)
 
-    @field_validator('confidence')
-    @classmethod
-    def confidence_range(cls, v):
-        if not (0.0 <= v <= 1.0): raise ValueError("Confidence 0.0-1.0")
-        return v
-
-class ErrorResponse(BaseModel):
-    error_code: str
-    point_of_failure: Optional[str] = None
-    status: str = "REFUSED"
-
-@runtime_checkable
-class LLMClient(Protocol):
-    def __call__(self, prompt: str) -> Dict[str, Any]: ...
-
-class PreconditionError(Exception):
-    pass
-
-def retry_with_backoff(max_retries=3, base_delay=1):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    if attempt == max_retries - 1: raise
-                    delay = base_delay * (2 ** attempt)
-                    logger.warning(f"Retry {attempt+1}/{max_retries} in {delay}s: {e}")
-                    time.sleep(delay)
-        return wrapper
-    return decorator
-
-# --------------------------------------------------
-# 3. CORE GATEKEEPER
-# --------------------------------------------------
+    @validator_v2(mode='after')
+    def enforce_threshold(self) -> 'LLMResponse':
+        if self.confidence < 0.9:
+            raise ValueError("Insufficient grounding")
+        return self
 
 class UncertaintyGatekeeper:
-    def __init__(self, llm_client: LLMClient, contract: AuditContract):
+    def __init__(self, llm_client: Any):
         self.llm_client = llm_client
-        self.contract = contract
-        self.metrics = AuditMetrics()
-        self._cache: Dict[str, LLMResponse] = {}
+        self._cache: Dict[str, str] = {}
 
-    def _heuristic_check(self, prompt: str):
+    def _density_gate(self, prompt: str):
+        """
+        Replaces heuristic regex with deterministic density validation.
+        Enforces a minimum of 10 tokens and 50 characters.
+        """
         tokens = prompt.strip().split()
-        if len(tokens) < 10: raise PreconditionError("Density failure")
-        if not re.search(r"\b\w+(?:ed|es|s|ing)?\s+\w+\b", prompt):
-            raise PreconditionError("Semantic structure failure")
+        if len(tokens) < 10 or len(prompt) < 50:
+            [span_11](start_span)raise ValueError("Rejection: Input density insufficient for audit.")[span_11](end_span)
 
-    def _validate(self, res: LLMResponse) -> Tuple[Optional[InferenceFailure], Optional[str]]:
-        if res.confidence < self.contract.min_confidence:
-            return InferenceFailure.INSUFFICIENT_GROUNDING, f"conf={res.confidence}"
-        for pat in self.contract.uncertainty_patterns:
-            match = re.search(pat, res.text, re.IGNORECASE)
-            if match: return InferenceFailure.INSUFFICIENT_GROUNDING, match.group(0)
-        if self.contract.required_citations and not re.search(r"\[\d+\]", res.text):
-            return InferenceFailure.OUT_OF_BOUNDS, "missing_citation"
-        return None, None
-
-    @retry_with_backoff()
     def execute(self, prompt: str) -> str:
-        self.metrics.total_requests += 1
-        cache_key = hashlib.sha256(prompt.encode()).hexdigest()
+        """Deterministic execution with SHA-256 caching."""
+        self._density_gate(prompt)
         
+        cache_key = hashlib.sha256(prompt.encode()).hexdigest()
         if cache_key in self._cache:
-            self.metrics.cache_hits += 1
-            res = self._cache[cache_key]
-        else:
-            self._heuristic_check(prompt)
-            raw = self.llm_client(prompt)
-            res = LLMResponse(**raw)
-            self._cache[cache_key] = res
+            return self._cache[cache_key]
 
-        failure, snippet = self._validate(res)
-        if failure:
-            self.metrics.refusals += 1
-            self.metrics.failures_by_type[failure.value] = self.metrics.failures_by_type.get(failure.value, 0) + 1
-            return ErrorResponse(error_code=failure.value, point_of_failure=snippet).model_dump_json()
+        # Call client and enforce schema
+        raw = self.llm_client(prompt)
+        res = LLMResponse(**raw)
+        
+        # [span_12](start_span)Uncertainty terminates execution[span_12](end_span)
+        if re.search(r"\b(maybe|perhaps|probably|i think)\b", res.text, re.I):
+            return "REFUSED: Probabilistic language detected"
 
+        self._cache[cache_key] = res.text
         return res.text
 
 # --------------------------------------------------
-# 4. CLAIM AUDITOR
+# [span_13](start_span)Operational Rule: Refusal is success[span_13](end_span).
 # --------------------------------------------------
-
-class ClaimAuditor:
-    def __init__(self, llm_client: LLMClient):
-        self.llm_client = llm_client
-
-    def _normalize_numbers(self, text: str) -> Set[str]:
-        return {n.replace(",", "") for n in re.findall(r"\d+(?:,\d{3})*(?:\.\d+)?%?", text)}
-
-    @retry_with_backoff()
-    def audit(self, claim: str, reference: str) -> str:
-        prompt = f"REF:\n{reference}\n\nCLAIM:\n{claim}\n\nStrict semantic match only. Else NULL."
-        raw = self.llm_client(prompt)
-        output = raw.get("text", "").strip()
-        if re.fullmatch(r"(?i)null", output): return "NULL"
-        
-        c_nums, r_nums = self._normalize_numbers(claim), self._normalize_numbers(reference)
-        if c_nums and not (c_nums & r_nums): return "NULL"
-        return output
-
-# --------------------------------------------------
-# 5. TEST RUN
-# --------------------------------------------------
-if __name__ == "__main__":
-    mock_client = lambda p: {"text": "Revenue: 500M [1]", "confidence": 0.98}
-    gate = UncertaintyGatekeeper(mock_client, AuditContract())
-    print(f">> Result: {gate.execute('Identify the specific revenue for the current fiscal period.')}")
-    print(f">> Metrics: {gate.metrics}")
