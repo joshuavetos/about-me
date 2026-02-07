@@ -108,6 +108,155 @@ not to make interaction pleasant.
 
 --------------------------------------------------
 
+## MULTI-GATE ORCHESTRATION & ESCALATION SEMANTICS (AUTHORITATIVE)
+
+This section defines how multiple failure gates interact.
+No gate may redefine these rules locally.
+
+---
+
+## 1. GATE ORDERING (TOTAL, NOT PARTIAL)
+
+Gates are executed in a fixed, total order:
+
+G1 → G2 → G3 → … → Gn
+
+Examples:
+- G1: Structural / Schema
+- G2: Budget / Quantitative
+- G3: Legal / Compliance
+- G4: Temporal / Feasibility
+
+Order is immutable per artifact class.
+
+---
+
+## 2. REGENERATION ENTRY RULE (CRITICAL)
+
+If an artifact fails **Gate k**:
+
+- Regeneration re-enters at **Gate k**
+- Gates **G1 … G(k−1)** are considered *conditionally passed*
+- However: **they are revalidated after regeneration**
+
+This prevents:
+- Skipping earlier gates
+- Assuming earlier correctness after mutation
+
+---
+
+## 3. PASS INVALIDATION RULE (ANTI-REGRESSION)
+
+After regeneration for Gate k:
+
+- Gates G1 … G(k−1) are automatically rechecked
+- If any earlier gate now fails:
+  - Control returns to the **earliest failed gate**
+  - Retry budget is charged to that gate
+
+This explicitly prevents:
+“Fix Gate 2 → silently break Gate 1” loops
+
+---
+
+## 4. RETRY BUDGET SCOPE (LOCKED)
+
+Retry budgets are:
+
+- **Per-gate**
+- **Non-transferable**
+- **Non-resetting**
+
+Rules:
+- Each gate has its own retry counter (e.g. 3–5)
+- Passing a gate does **not** reset its budget
+- If Gate 2 exhausts retries → permanent ABSTAIN
+- Passing Gate 2 does not refund Gate 1 retries
+
+Rationale:
+Retries measure instability, not effort.
+
+---
+
+## 5. DOWNSTREAM REFUSAL MODES
+
+Every downstream system MUST declare one of:
+
+### A. HARD REFUSAL
+- Any `FORCE_PASS` artifact is rejected automatically
+- Used for:
+  - Financial execution
+  - Legal submission
+  - External publication
+
+### B. SOFT REFUSAL
+- Artifact is accepted
+- Flag is visible and persistent
+- Human must explicitly acknowledge flag
+
+### C. CONTEXTUAL
+- Policy map determines acceptance
+- Example:
+  - Allowed for internal review
+  - Rejected for final filing
+
+Default mode is **HARD REFUSAL** unless explicitly overridden.
+
+---
+
+## 6. OPERATOR OVERRIDE INTERVENTION LADDER
+
+Override monitoring is not advisory.
+
+Escalation ladder:
+
+1. **Visibility**
+   - Override rate
+   - Time-to-override
+   - ABSTAIN frequency
+
+2. **Threshold Trigger**
+   - Exceeds baseline → automatic flag
+
+3. **Constraint**
+   - Reduced override privileges
+   - Mandatory second reviewer
+
+4. **Suspension**
+   - Override disabled pending review
+
+No silent penalties.
+All actions are logged.
+
+---
+
+## 7. COLD-START BASELINE PROTOCOL
+
+During initial deployment:
+
+- Overrides are **allowed but labeled**
+- No penalties for first N artifacts (configurable)
+- Metrics are collected but not enforced
+
+After baseline window:
+- Median ABSTAIN rate becomes reference
+- Deviations are evaluated relative to baseline, not absolute counts
+
+This prevents:
+- Premature rubber-stamping
+- Early-stage paralysis
+
+---
+
+## 8. NON-NEGOTIABLE INVARIANTS
+
+- Passed gates are *revalidated*, never trusted
+- Retry exhaustion is terminal
+- Overrides increase scrutiny, never reduce it
+- Silence is always an acceptable output
+
+This section supersedes any conflicting implementation detail.
+
 ## Status
 
 This artifact is operational.
