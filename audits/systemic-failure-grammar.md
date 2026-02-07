@@ -229,3 +229,4 @@ Further optimization attempts will only redistribute harm, not eliminate it.
 **Status:** Boundary reached.  
 **Result:** Grammar complete.  
 **Next work:** Application and defense only.
+ABSTAIN is the system refusing to assign responsibility — and responsibility must always be assigned explicitly by either a human or a constrained regeneration loop.
