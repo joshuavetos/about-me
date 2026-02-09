@@ -1,3 +1,5 @@
+<img width="1536" height="1024" alt="80B1F0DD-9449-40A3-9FA6-F348CB351E3E" src="https://github.com/user-attachments/assets/5a40aba2-5604-4146-beeb-ccc13a13bb39" />
+
 # Human–AI Leverage: Failure-First Portfolio
 
 This repository is **not a demo reel**.  
