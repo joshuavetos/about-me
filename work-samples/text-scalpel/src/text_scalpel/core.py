@@ -13,9 +13,11 @@ class ScalpelEngine:
         indent = ""
         for line in lines:
             if anchor_text in line:
+                # Capture the exact leading whitespace of the anchor line
                 indent = line[:len(line) - len(line.lstrip())]
                 break
 
+        # Apply the detected indentation to every line of the new payload
         indented_lines = [(f"{indent}{l}" if l.strip() else l) for l in new_code.splitlines()]
         indented_block = "\n".join(indented_lines)
 
@@ -25,4 +27,5 @@ class ScalpelEngine:
         else:
             replacement = f"{indented_block}\n{anchor_text}"
 
+        # count=1 ensures we only operate on the first match (surgical precision)
         return re.sub(pattern, replacement, source_code, count=1)
