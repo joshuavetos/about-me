@@ -1,176 +1,79 @@
 import os
-import shutil
-import uvicorn
 import pandas as pd
 import numpy as np
 import torch
 import json
 import chardet
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse
 from PIL import Image
+from scipy import stats
 from fpdf import FPDF
+import gradio as gr
 
-# --- Configuration ---
-app = FastAPI(title="Structural Integrity Audit API")
-os.makedirs("evidence", exist_ok=True)
-report_registry = {}
+# Create evidence directory
+os.makedirs('evidence', exist_ok=True)
 
-# --- PDF Generator ---
-class PDFReportGenerator(FPDF):
+# --- 1. Forensic PDF Logic ---
+class AuditCertificate(FPDF):
     def header(self):
-        self.set_font("Arial", "B", 14)
-        self.cell(0, 10, "Structural Integrity Audit Certificate", 0, 1, "C")
-        self.ln(6)
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, 'STRUCTURAL INTEGRITY AUDIT: CERTIFICATE', 0, 1, 'C')
+        self.ln(10)
 
-    def generate(self, report, output_path):
-        self.add_page()
-        self.set_font("Arial", "", 11)
+def generate_pdf(report, filename):
+    pdf = AuditCertificate()
+    pdf.add_page()
+    pdf.set_font("Courier", size=10)
+    pdf.multi_cell(0, 5, json.dumps(report, indent=2))
+    safe_name = "".join([c for c in filename if c.isalnum() or c in (' ', '.', '_')]).rstrip()
+    path = f"evidence/cert_{safe_name}.pdf"
+    pdf.output(path)
+    return path
 
-        self.cell(0, 8, f"Type: {report.get('type')}", 0, 1)
-        self.set_font("Arial", "B", 12)
-        self.cell(0, 8, f"Verdict: {report.get('verdict')}", 0, 1)
-        self.set_font("Arial", "", 11)
-        self.ln(4)
-
-        self.cell(80, 8, "Check", 1)
-        self.cell(100, 8, "Result", 1)
-        self.ln()
-
-        for check in report.get("checks", []):
-            for k, v in check.items():
-                self.cell(80, 8, str(k), 1)
-                self.cell(100, 8, str(v), 1)
-                self.ln()
-
-        self.output(output_path)
-
-# --- Core Audit Logic ---
-def analyze_input(text, file):
-    report = {
-        "type": None,
-        "checks": [],
-        "verdict": "UNKNOWN",
-        "evidence_files": []
-    }
-
-    def extract_tensors(obj):
-        if isinstance(obj, torch.Tensor):
-            return [obj]
-        if isinstance(obj, dict):
-            return sum((extract_tensors(v) for v in obj.values()), [])
-        if isinstance(obj, (list, tuple)):
-            return sum((extract_tensors(v) for v in obj), [])
-        return []
-
-    try:
+# --- 2. Hardened Audit Core ---
+def run_audit(files):
+    if not isinstance(files, list):
+        files = [files]
+    batch_results = []
+    cert_paths = []
+    for file in files:
+        report = {"file": os.path.basename(file.name), "verdict": "UNKNOWN", "checks": []}
         path = file.name
         name = path.lower()
-
-        # --- CSV ---
-        if name.endswith(".csv"):
-            report["type"] = "tabular"
-            with open(path, "rb") as f:
-                encoding = chardet.detect(f.read(10000))["encoding"]
-
-            df = pd.read_csv(path, encoding=encoding)
-            null_rows = df[df.isnull().any(axis=1)]
-            dup_rows = df[df.duplicated()]
-
-            report["checks"].append({"encoding": encoding})
-            report["checks"].append({"null_rows": int(len(null_rows))})
-            report["checks"].append({"duplicate_rows": int(len(dup_rows))})
-
-            if len(null_rows) or len(dup_rows):
-                ev = f"evidence/sample_{os.path.basename(path)}"
-                pd.concat([null_rows.head(), dup_rows.head()]).to_csv(ev)
-                report["evidence_files"].append(ev)
-                report["verdict"] = "FAILS"
-            else:
+        try:
+            if name.endswith('.csv'):
+                df = pd.read_csv(path)
+                numeric_cols = df.select_dtypes(include=[np.number])
+                outliers = int(np.abs(stats.zscore(numeric_cols.fillna(0))) > 3).sum().sum() if not numeric_cols.empty else 0
+                report["checks"].append({"nulls": int(df.isnull().sum().sum()), "outliers_detected": outliers, "rows": len(df)})
+                report["verdict"] = "HOLDS" if outliers < (len(df) * 0.05) else "FAILS (HIGH DRIFT)"
+            elif name.endswith(('.pt', '.pth')):
+                state = torch.load(path, map_location="cpu", weights_only=True)
+                if hasattr(state, 'state_dict'): state = state.state_dict()
+                nan_layers = [k for k, v in state.items() if isinstance(v, torch.Tensor) and torch.isnan(v).any()]
+                report["checks"].append({"nan_layers_detected": len(nan_layers), "total_keys": len(state)})
+                report["verdict"] = "HOLDS" if not nan_layers else "FAILS (CORRUPT WEIGHTS)"
+            elif name.endswith(('.png', '.jpg', '.jpeg')):
+                img = Image.open(path)
+                img.verify()
+                report["checks"].append({"format": img.format, "res": f"{img.width}x{img.height}"})
                 report["verdict"] = "HOLDS"
+        except Exception as e:
+            report["verdict"] = f"CRITICAL_FAILURE: {str(e)}"
+        batch_results.append(report)
+        cert_paths.append(generate_pdf(report, os.path.basename(path)))
+    return json.dumps(batch_results, indent=2), cert_paths
 
-        # --- IMAGE ---
-        elif name.endswith((".png", ".jpg", ".jpeg", ".gif", ".tif", ".tiff")):
-            report["type"] = "image"
-            img = Image.open(path)
-            frames = getattr(img, "n_frames", 1)
-            report["checks"].append({
-                "dimensions": f"{img.width}x{img.height}",
-                "mode": img.mode,
-                "frames": frames
-            })
-            report["verdict"] = "HOLDS"
+# --- 3. Gradio Interface ---
+interface = gr.Interface(
+    fn=run_audit,
+    inputs=gr.File(label="Upload Assets (Select multiple for Batch Mode)", file_count="multiple"),
+    outputs=[
+        gr.Code(label="Batch Audit Trail (JSON)"),
+        gr.File(label="Download Audit Certificates (PDFs)")
+    ],
+    title="Tessrax Hardened Audit Pipeline",
+    description="Secure, headless-ready validation for Tabular, Tensor, and Vision assets."
+)
 
-        # --- TORCH MODEL ---
-        elif name.endswith((".pt", ".pth")):
-            report["type"] = "model"
-            state = torch.load(path, map_location="cpu", weights_only=True)
-            tensors = extract_tensors(state)
-
-            nan_layers = []
-            for k, v in state.items():
-                if isinstance(v, torch.Tensor) and torch.isnan(v).any():
-                    nan_layers.append(k)
-
-            report["checks"].append({"tensor_count": len(tensors)})
-            report["checks"].append({"nan_layers": nan_layers})
-
-            if nan_layers:
-                ev = f"evidence/nans_{os.path.basename(path)}.log"
-                with open(ev, "w") as f:
-                    f.write("\n".join(nan_layers))
-                report["evidence_files"].append(ev)
-                report["verdict"] = "FAILS"
-            else:
-                report["verdict"] = "HOLDS"
-
-        # --- TEXT ---
-        elif text.strip():
-            report["type"] = "text"
-            report["checks"].append({"length": len(text)})
-            report["verdict"] = "ACKNOWLEDGED"
-
-        else:
-            report["verdict"] = "FAILS"
-
-    except Exception as e:
-        report["verdict"] = "FAILS"
-        report["checks"].append({"error": str(e)})
-
-    return report
-
-# --- API ---
-@app.post("/audit")
-async def audit(file: UploadFile = File(...)):
-    tmp = f"_tmp_{file.filename}"
-    with open(tmp, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    class F:
-        def __init__(self, name): self.name = name
-
-    report = analyze_input("", F(tmp))
-    report_registry[file.filename] = report
-    os.remove(tmp)
-    return report
-
-@app.post("/batch-audit")
-async def batch(directory_path: str = Form(...)):
-    results = {}
-    for fn in os.listdir(directory_path):
-        p = os.path.join(directory_path, fn)
-        if os.path.isfile(p):
-            class F:
-                def __init__(self, name): self.name = name
-            results[fn] = analyze_input("", F(p))
-    return results
-
-@app.post("/certificate")
-async def certificate(report_id: str):
-    pdf_path = f"evidence/certificate_{report_id}.pdf"
-    pdf = PDFReportGenerator()
-    pdf.generate(report_registry[report_id], pdf_path)
-    return FileResponse(pdf_path, filename=os.path.basename(pdf_path))
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+interface.launch(share=True)
+print('Audit engine launched.')
