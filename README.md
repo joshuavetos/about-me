@@ -41,4 +41,4 @@ Concrete implementations of safety layers for autonomous and industrial systems.
 This is a working record of **Constraint Enforcement**. It documents the defensive architecture and reliability engineering required to make autonomous systems safe for real-world deployment in banking, energy, and industrial sectors.
 
 ---
-**Maintained by Joshua Scott Vetos | 2026**
+**Maintained by Josh Vetos | 2026**
