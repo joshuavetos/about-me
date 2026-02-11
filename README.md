@@ -1,49 +1,44 @@
-# Vetos Systems: The Fail-Closed Governance Stack
+# Vetos Systems: Engineering & Reliability Portfolio
 
-**A repository documenting how complex AI and industrial systems are audited, constrained, and deliberately halted when certainty is insufficient.**
+**A collection of structural engineering artifacts, autonomous systems architecture, and deterministic governance frameworks.**
 
 ---
 
 ## 🛠 Philosophy: Reliability Over Appearance
 
-In high-consequence environments—banking, energy, and defense—failure is not just a bug; it is a structural risk. This repository is built on three non-negotiable invariants:
+This repository serves as a living record of technical competency. It documents how complex systems—from industrial automation to macro-financial engines—are audited, constrained, and forced into a safe state when certainty is insufficient.
+
+In high-consequence environments, failure is not just a bug; it is a structural risk. This portfolio is built on three non-negotiable invariants:
 
 1. **Fail-Closed by Design:** Systems must move to a safe state (Halt) rather than degrading silently or hallucinating.
-2. **Auditable Lineage:** Every actuation must emit a cryptographically verifiable receipt.
+2. **Auditable Lineage:** Every significant actuation or data transformation must emit a cryptographically verifiable receipt.
 3. **Epistemic Modesty:** If a system cannot prove its input is valid or its confidence is sufficient, it is forbidden from acting.
 
 ---
 
-## 🏗 Core Governance & Reliability Stack
+## 🏗 Featured Engineering Artifacts
 
-The following artifacts, located in `work-samples/core-governance-stack/`, demonstrate specific solutions to critical failure modes:
+### 1. Macro Regime Detection & Risk Monitoring
+**Location:** `tools/macro_engine_v2.py`
+An institutional-grade risk engine that integrates macroeconomic indicators with advanced statistical modeling.
+- **Conditional Volatility:** Implements GARCH(1,1) to identify variance clustering and structural regime shifts.
+- **Liquidity Monitoring:** Tracks "Net Liquidity" (Fed Assets - TGA - RRP) to identify systemic drawdowns with 2-4 week lead times.
+- **Quarantine Logic:** Automatically triggers a "Veto" on rebalancing when liquidity drains or volatility spikes above predicted surfaces.
 
-| Component | Failure Mode Solution | Mechanism |
-| :--- | :--- | :--- |
-| **`guardrail_engine.py`** | Probabilistic Refusal | Uses Softmax confidence thresholds to block low-certainty AI inference. |
-| **`audit_pipeline.py`** | Immutable Data Lineage | A SQLite-backed ledger that generates cryptographic receipts for ETL steps. |
-| **`bounded_agent.py`** | Policy-Enforced Actuation | A policy layer that intercepts and validates tool-calls before execution. |
-| **`rap_kernel.py`** | Systemic Risk Bonding | Implements Action-Scoped Bonding to internalize the cost of failure. |
-| **`concur_guard.py`** | Deterministic Financial Gating | A hash-chained ledger to block duplicate or unauthorized financial actions. |
-| **`drift_monitor.py`** | Statistical Health Validation | Uses Kolmogorov-Smirnov tests to quarantine models exhibiting drift. |
-| **`industrial_guard.py`** | OT / Automation Safety | A deterministic state machine for predictive maintenance in industrial OT. |
-| **`stress_cycle_v3.py`** | Mechanism Design Testing | Full-cycle stress testing of risk allocation kernels using ensemble models. |
-
----
-
-## 📈 Specialized Tooling: Institutional Macro Engine
-
-Located in `tools/macro_engine_v2.py`, this engine is an institutional-grade risk monitor designed to bridge macroeconomic data with portfolio safety.
-
-- **GARCH(1,1) Volatility Surface:** Identifies clustering of variance to distinguish noise from structural shifts.
-- **High-Frequency Net Liquidity:** Monitors the "Systemic Oxygen" (Fed Assets - TGA - RRP) to identify lead-time drawdowns.
-- **The Quarantine Gate:** A hard-coded "Veto" logic that halts rebalancing if liquidity drains or volatility surface spikes.
+### 2. Core Governance & Reliability Stack
+**Location:** `work-samples/core-governance-stack/`
+Concrete implementations of safety layers for autonomous and industrial systems.
+- **`guardrail_engine.py`**: Probabilistic refusal layer using Softmax confidence thresholds to block low-certainty AI inference.
+- **`audit_pipeline.py`**: SQLite-backed ledger providing immutable data lineage and cryptographic receipts for ETL processes.
+- **`concur_guard.py`**: Deterministic financial gating using hash-chained ledgers to prevent unauthorized or duplicate transactions.
+- **`industrial_guard.py`**: Deterministic state machine for predictive maintenance and safety enclosures in industrial OT (Operational Technology).
+- **`stress_cycle_v3.py`**: Full-cycle mechanism design testing for risk allocation kernels.
 
 ---
 
-## 🚫 What This Repository Is Not
+## 🚫 Operating Standard
 
-This is **not** a showcase of "AI magic," prompt engineering, or leaderboard-chasing benchmarks. This is a working record of **Constraint Enforcement**. It documents the defensive architecture required to make autonomous systems safe for real-world deployment.
+This is a working record of **Constraint Enforcement**. It documents the defensive architecture and reliability engineering required to make autonomous systems safe for real-world deployment in banking, energy, and industrial sectors.
 
 ---
-**Maintained by Joshua Scott Vetos | 2026**
+**Maintained by Josh Vetos | 2026**
