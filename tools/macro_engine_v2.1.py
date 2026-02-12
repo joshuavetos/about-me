@@ -19,24 +19,25 @@ def run_upgraded_engine(df, FRED_API_KEY, START, END):
     
     # --- 2. Advanced Liquidity Plumbing ---
     # Net Liquidity = (Fed Total Assets) - (TGA Balance) - (Reverse Repo)
+    # This is the 'True' liquidity available for market absorption.
     fred = Fred(api_key=FRED_API_KEY)
     
-    # Observation: FRED Series are often weekly; we resample to Monthly (Last) to match price data
     tga = fred.get_series('WTREGEN', observation_start=START, observation_end=END).resample('ME').last()
     rrp = fred.get_series('RRPONTSYD', observation_start=START, observation_end=END).resample('ME').last()
     
-    df['net_liquidity'] = df['fed_assets'] - tga - rrp
+    # Net Liquidity Level
+    df['net_liquidity'] = df['fed_assets'] - tga.reindex(df.index, method='ffill') - rrp.reindex(df.index, method='ffill')
     
     # Net Liquidity Z-Score (The Level)
     df['liq_z'] = (df['net_liquidity'] - df['net_liquidity'].rolling(rolling_window).mean()) / \
                   df['net_liquidity'].rolling(rolling_window).std()
     
     # Net Liquidity Velocity (The Acceleration of the drain)
-    # Identifies "Predictive" stress before price realization
+    # Identifies 'Predictive' stress before price realization.
     df['liq_velocity'] = df['liq_z'].diff(2) 
 
     # --- 3. GARCH(1,1) Volatility Surface ---
-    # Identifies "Reactive" regime shifts where volatility is clustering
+    # Identifies 'Reactive' regime shifts where volatility is clustering.
     garch_input = df['sp_ret'].dropna() * 100
     am = arch_model(garch_input, vol='Garch', p=1, q=1, dist='Normal')
     res = am.fit(disp='off')
@@ -70,7 +71,3 @@ def run_upgraded_engine(df, FRED_API_KEY, START, END):
     print(f"Current State: {'QUARANTINE' if df['quarantine_signal'].iloc[-1] else 'CLEAR'}")
 
     return df[output_cols]
-
-# Implementation Note: 
-# This engine moves from 'Volatility Confirmation' to 'Regime Navigation' 
-# by integrating the first-order derivative (velocity) of global liquidity.
