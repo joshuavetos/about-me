@@ -9,3 +9,4 @@ Standard agents fail in "Fog of War" scenarios by getting trapped in local maxim
 * **Zero-Communication:** Zero bytes shared between agents during execution.
 * **Convergence Rate:** 100% convergence on 100x100 grids with 95% information occlusion.
 * **Robustness:** Immune to high-frequency sensor noise via sigma-weighted macro-filtering.
+* **Lighthouse v2.0:** Eliminates the need for "Active Beacons." Agents now utilize Lexical Tie-Breaking to anchor on the "North-West-most" structural outlier in any given information field. This allows coordination in 100% natural, un-instrumented environments.
