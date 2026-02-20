@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 
 class BudgetItem(BaseModel):
@@ -18,6 +18,13 @@ class BudgetItem(BaseModel):
     fiscal_start: int = Field(..., ge=2020, le=2045)
     fiscal_end: int = Field(..., ge=2020, le=2045)
 
+    @field_validator("budget_allocation")
+    @classmethod
+    def validate_finite_allocation(cls, value: float) -> float:
+        if not np.isfinite(value):
+            raise ValueError("budget_allocation must be finite")
+        return value
+
     @model_validator(mode="after")
     def validate_chronology(self) -> "BudgetItem":
         if self.fiscal_end < self.fiscal_start:
@@ -27,6 +34,11 @@ class BudgetItem(BaseModel):
 
 def verify_signal_integrity(data_values: np.ndarray) -> bool:
     """Entropy veto. Returns False if data is too uniform."""
+    if data_values.ndim != 1:
+        raise ValueError("data_values must be a one-dimensional array")
+    if not np.all(np.isfinite(data_values)):
+        raise ValueError("data_values must contain only finite numbers")
+
     if len(data_values) < 5:
         return True
 
@@ -55,7 +67,7 @@ def run_financial_audit(input_data: List[Dict[str, Any]]) -> Dict[str, Any]:
     for index, record in enumerate(input_data):
         try:
             item = BudgetItem(**record)
-        except Exception as exc:
+        except ValidationError as exc:
             raise ValueError(f"record at index {index} failed validation") from exc
         validated.append(item.model_dump())
 

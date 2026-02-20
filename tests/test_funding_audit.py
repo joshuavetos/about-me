@@ -124,3 +124,42 @@ def test_filing_auditor_extracts_unformatted_and_shorthand_currency():
     outlier_values = {rejection["value"] for rejection in auditor.telemetry.rejections if rejection["context"] == "financial_outlier"}
     assert 1000.0 not in outlier_values
     assert 2000000.0 not in outlier_values
+
+
+def test_run_financial_audit_rejects_non_finite_allocation():
+    payload = [
+        {"project_name": "A", "budget_allocation": 1000.0, "fiscal_start": 2025, "fiscal_end": 2026},
+        {"project_name": "B", "budget_allocation": float("nan"), "fiscal_start": 2025, "fiscal_end": 2026},
+    ]
+
+    with pytest.raises(ValueError, match="record at index 1 failed validation"):
+        module.run_financial_audit(payload)
+
+
+def test_filing_auditor_accepts_datetime_iso_string():
+    auditor = extraction_module.FilingAuditor(target_years=[2024])
+    filing = extraction_module.Filing(
+        identifier="f-4",
+        filing_type="10-K",
+        accepted_date="2024-01-15T10:15:30Z",
+        processed_text="For fiscal year 2024 revenue was $100.",
+    )
+
+    auditor.audit_filing(filing)
+
+    assert auditor.coverage[2024] == 1
+
+
+def test_filing_auditor_extracts_single_decimal_currency():
+    auditor = extraction_module.FilingAuditor(target_years=[2024])
+    filing = extraction_module.Filing(
+        identifier="f-5",
+        filing_type="10-Q",
+        accepted_date="2024-05-01",
+        processed_text="Budget for year 2024 includes $100.5 and reserve of $2m.",
+    )
+
+    auditor.audit_filing(filing)
+
+    outlier_values = {rejection["value"] for rejection in auditor.telemetry.rejections if rejection["context"] == "financial_outlier"}
+    assert 100.5 not in outlier_values

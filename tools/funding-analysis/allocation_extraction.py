@@ -5,7 +5,7 @@ import json
 import hashlib
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
-from datetime import date
+from datetime import date, datetime
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,7 @@ class Telemetry:
             total = stats.get('total_matches', 0)
             rej = rejection_counts.get(f_type, 0)
             # Reliability is 0 if no data found
-            score = round(1.0 - (rej / total), 4) if total > 0 else 0.0
+            score = round(max(0.0, min(1.0, 1.0 - (rej / total))), 4) if total > 0 else 0.0
             rankings.append({'filing_type': f_type, 'reliability_score': score})
         
         return {
@@ -71,13 +71,17 @@ class FilingAuditor:
         if isinstance(accepted_date, date):
             return accepted_date
         if isinstance(accepted_date, str):
-            return date.fromisoformat(accepted_date)
+            normalized = accepted_date.strip().replace("Z", "+00:00")
+            try:
+                return date.fromisoformat(normalized)
+            except ValueError:
+                return datetime.fromisoformat(normalized).date()
         raise TypeError("accepted_date must be a date or ISO-8601 string")
 
     def _extract_currency(self, text: str) -> List[Dict]:
         multipliers = {'m': 1e6, 'million': 1e6, 'b': 1e9, 'billion': 1e9}
         # Hardened pattern with forced boundary for shorthand units
-        pattern = r"(?i)(?<![\w.])(?P<sign>-?)\$((?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)(?:\s*(?P<unit>million|billion|m|b))?)(?![\d])"
+        pattern = r"(?i)(?<![\w.])(?P<sign>-?)\$((?P<value>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)(?:\s*(?P<unit>million|billion|m|b))?)(?![\d])"
         results = []
         for match in re.finditer(pattern, text):
             g = match.groupdict()
@@ -98,7 +102,7 @@ class FilingAuditor:
         return results
 
     def audit_filing(self, filing: Filing):
-        text = filing.processed_text
+        text = str(filing.processed_text)
         if not text: return
         is_outlook = any(kw in text.lower() for kw in ['outlook', 'forecast', 'projection', 'planned'])
         max_yr_limit = 2200 if is_outlook else 2100
